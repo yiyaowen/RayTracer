@@ -16,25 +16,51 @@
 
 class Camera {
 public:
-    Camera(double aspectRatio, double viewportHeight) {
+    Camera(double aspectRatio,
+           double aperture,
+           double focusDistance,
+           double verticalFov,
+           Vector3d position,
+           Vector3d lookAt,
+           Vector3d up)
+   {
         m_aspectRatio = aspectRatio;
-        m_viewportHeight = viewportHeight;
-        m_viewportWidth = aspectRatio * viewportHeight;
+        m_lensRadius = aperture * 0.5;
+        m_focusDistance = focusDistance;
 
-        m_horizontal = { m_viewportWidth, 0.0, 0.0 };
-        m_vertical = { 0.0, m_viewportHeight, 0.0 };
-        m_lowerLeftCorner = m_origin - m_horizontal / 2 - m_vertical / 2 - Vector3d(0.0, 0.0, m_focalLength);
+        double theta = radians(verticalFov);
+        double h = tan(0.5 * theta);
+        m_viewportHeight = 2.0 * h;
+        m_viewportWidth = aspectRatio * m_viewportHeight;
+
+        w = normalize(position - lookAt);
+        u = normalize(cross(up, w));
+        v = cross(w, u);
+
+        m_origin = position;
+        m_horizontal = u * m_viewportWidth * m_focusDistance;
+        m_vertical = v * m_viewportHeight * m_focusDistance;
+        m_lowerLeftCorner = m_origin - m_horizontal * 0.5 - m_vertical * 0.5 - w * m_focusDistance;
     }
 
-    Ray getRay(double u, double v) const {
-        return { m_origin, m_lowerLeftCorner + u * m_horizontal + v * m_vertical - m_origin };
+    Ray getRay(double s, double t) const {
+        Vector3d rd =  m_lensRadius * randomUnitDisk();
+        Vector3d offset = u * rd.x() + v * rd.y();
+
+        return { m_origin + offset,
+                 m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin - offset };
     }
 
 private:
     double m_aspectRatio = 1.0;
+    double m_lensRadius = 0.0f;
+    double m_focusDistance = 0.0f;
+
     double m_viewportHeight = 2.0;
     double m_viewportWidth = 2.0;
     double m_focalLength = 1.0;
+
+    Vector3d u = {}, v = {}, w = {};
 
     Vector3d m_origin = {};
     Vector3d m_horizontal = {};

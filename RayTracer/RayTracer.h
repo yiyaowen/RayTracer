@@ -98,4 +98,12 @@ inline Vector3d randomUnitHemisphere(const Vector3d& normal) {
     }
 }
 
+inline Vector3d randomUnitDisk() {
+    while (true) {
+        auto p = Vector3d(randomReal(-1.0, 1.0), randomReal(-1.0, 1.0), 0.0);
+        if (p.length2() >= 1) continue;
+        return p;
+    }
+}
+
 #endif // RAY_TRACER_H

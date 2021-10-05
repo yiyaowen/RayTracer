@@ -78,6 +78,8 @@ Vector3d rayColor(const Ray& r, const std::vector<std::shared_ptr<Shape>>& shape
     }
 }
 
+std::vector<std::shared_ptr<Shape>> randomScene();
+
 int main(int argc, char* argv[]) {
     try {
         // Init random engine.
@@ -91,26 +93,14 @@ int main(int argc, char* argv[]) {
         const int maxDepth = 50;
 
         // Camera
-        Camera camera(aspectRatio, 2.0);
+        Vector3d position = { 13.0, 2.0, 3.0 };
+        Vector3d lookAt = { 0.0, 0.0, 0.0 };
+        Vector3d up = { 0.0, 1.0, 0.0 };
+        Camera camera(aspectRatio, 0.1, 10.0, 20.0, position, lookAt, up);
 
         // Scene
-        auto materialGround = std::make_shared<Lambertian>(Vector3d(0.8, 0.8, 0.0));
-        auto materialCenter = std::make_shared<Lambertian>(Vector3d(0.7, 0.3, 0.3));
-        auto materialLeft = std::make_shared<Dielectric>(1.5);
-        auto materialRight = std::make_shared<Metal>(Vector3d(0.8, 0.6, 0.2), 1.0);
 
-        auto scene = std::make_shared<Sphere>(Vector3d(0.0, -100.5, -1.0), 100.0, "scene", materialGround);
-        auto centerBall = std::make_shared<Sphere>(Vector3d(0.0, 0.0, -1.0), 0.5, "center_ball", materialCenter);
-        auto leftBall = std::make_shared<Sphere>(Vector3d(-1.0, 0.0, -1.0), 0.5, "left_ball", materialLeft);
-        auto leftInnerBall = std::make_shared<Sphere>(Vector3d(-1.0, 0.0, -1.0), -0.4, "left_inner_ball", materialLeft);
-        auto rightBall = std::make_shared<Sphere>(Vector3d(1.0, 0.0, -1.0), 0.5, "right_ball", materialRight);
-
-        bindShapes(scene, centerBall);
-        bindShapes(centerBall, leftBall);
-        bindShapes(leftBall, leftInnerBall);
-        bindShapes(centerBall, rightBall);
-
-        auto shapeList = scene->generatePriorityList({});
+        auto shapeList = randomScene();
 
         // Render
         PPMManager ppm = {};
@@ -135,4 +125,52 @@ int main(int argc, char* argv[]) {
     catch (const std::exception& e) {
         std::cout << e.what() << '\n';
     }
+}
+
+std::vector<std::shared_ptr<Shape>> randomScene() {
+    std::vector<std::shared_ptr<Shape>> shapeList = {};
+
+    auto groundMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, -1000.0, 0.0), 1000.0, "scene", groundMaterial));
+
+    for (int a = -11; a < 11; ++a) {
+        for (int b = -11;  b < 11; ++b) {
+            auto choose = randomReal();
+            Vector3d center(a + 0.9 * randomReal(), 0.2, b + 0.9 * randomReal());
+
+            if ((center - Vector3d(4.0, 0.2, 0.0)).length() > 0.9) {
+                std::shared_ptr<Material> sphereMaterial;
+
+                if (choose < 0.8) {
+                    // Diffuse
+                    auto albedo = randomVec3d() * randomVec3d();
+                    sphereMaterial = std::make_shared<Lambertian>(albedo);
+                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "diffuse_ball", sphereMaterial));
+                }
+                else if (choose < 0.95) {
+                    // Metal
+                    auto albedo = randomVec3d(0.5, 1.0);
+                    auto fuzz = randomReal(0.0, 0.5);
+                    sphereMaterial = std::make_shared<Metal>(albedo, fuzz);
+                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "metal_ball", sphereMaterial));
+                }
+                else {
+                    // Glass
+                    sphereMaterial = std::make_shared<Dielectric>(1.5);
+                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "glass_ball", sphereMaterial));
+                }
+            }
+        }
+    }
+
+    auto material1 = std::make_shared<Dielectric>(1.5);
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, 1.0, 0.0), 1.0, "ball1", material1));
+
+    auto material2 = std::make_shared<Lambertian>(Vector3d(0.4, 0.2, 0.1));
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(-4.0, 1.0, 0.0), 1.0, "ball2", material2));
+
+    auto material3 = std::make_shared<Metal>(Vector3d(0.7, 0.6, 0.5), 0.0);
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(4.0, 1.0, 0.0), 1.0, "ball3", material3));
+
+    return shapeList;
 }
