@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
                 ppm.writeColor(i, imageHeight - 1 - j, color / sampleCount, true);
             }
         }
-        ppm.endWrite("../Z Render Result/test.ppm");
+        ppm.endWrite("../Z Render Result/test.png");
     }
     catch (const std::exception& e) {
         std::cout << e.what() << '\n';

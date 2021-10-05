@@ -19,22 +19,22 @@ public:
 
     bool scatter(const Ray &rayIn, const HitResult &result, Vector3d &attenuation, Ray &rayScattered) const override {
         attenuation = Vector3d(1.0, 1.0, 1.0);
+        double actualRefractionIndex = result.isOuter ? m_refractionIndex : (1.0 / m_refractionIndex);
 
         Vector3d unitDirection = normalize(rayIn.direction());
         double cosTheta = dot(result.normal, -unitDirection);
         double sinTheta = sqrt(1.0 - cosTheta * cosTheta);
 
-        bool isTotalReflected = m_refractionIndex * sinTheta > 1.0;
+        bool isTotalReflected = actualRefractionIndex * sinTheta > 1.0;
 
         Vector3d rayRefracted = {};
         // Total reflection & Fresnel effect
-        if (isTotalReflected || schlickApproximation(cosTheta, m_refractionIndex) > randomReal()) {
-            rayRefracted = reflect(unitDirection, result.normal);
-        }
-        else {
-            rayRefracted = refract(unitDirection, result.normal,
-                                   result.isOuter ? m_refractionIndex : (1.0 / m_refractionIndex));
-        }
+//        if (isTotalReflected || schlickApproximation(cosTheta, actualRefractionIndex) > randomReal()) {
+//            rayRefracted = reflect(unitDirection, result.normal);
+//        }
+//        else {
+            rayRefracted = refract(unitDirection, result.normal, actualRefractionIndex);
+//        }
 
         rayScattered = Ray(result.position, rayRefracted);
         return true;

@@ -12,6 +12,7 @@ add_executable(RayTracer
     ${GRAPH_MATH_INCLUDE}
     Camera/Camera.h
     Exporter/PPMManager.h
+    Exporter/stb_image_write.h
     Material/Dielectric.h
     Material/Lambertian.h
     Material/Material.h

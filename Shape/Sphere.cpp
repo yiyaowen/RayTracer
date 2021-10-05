@@ -32,8 +32,10 @@ bool Sphere::hit(const Ray& r, double t_min, double t_max, HitResult& result) co
 
     result.t = root;
     result.position = r.at(result.t);
-    result.isOuter = (r.origin() - m_center).length() > m_radius;
-    result.normal = (result.isOuter ? (result.position - m_center) : (m_center - result.position)) / m_radius;
+//    result.isOuter = (r.origin() - m_center).length() > m_radius; // Bug occurred when near surface!
+    Vector3d outwardNormal = result.position - m_center;
+    result.isOuter = dot(r.direction(), outwardNormal) < 0.0;
+    result.normal = result.isOuter ? outwardNormal : -outwardNormal;
     result.material = m_material;
 
     return true;
