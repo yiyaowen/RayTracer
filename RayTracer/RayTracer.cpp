@@ -8,7 +8,7 @@
 */
 
 #include "Camera/Camera.h"
-#include "Exporter/PPMManager.h"
+#include "Exporter/ExporterManager.h"
 #include "Material/Dielectric.h"
 #include "Material/Lambertian.h"
 #include "Material/Metal.h"
@@ -78,6 +78,7 @@ Vector3d rayColor(const Ray& r, const std::vector<std::shared_ptr<Shape>>& shape
     }
 }
 
+std::vector<std::shared_ptr<Shape>> testScene();
 std::vector<std::shared_ptr<Shape>> randomScene();
 
 int main(int argc, char* argv[]) {
@@ -89,22 +90,27 @@ int main(int argc, char* argv[]) {
         const double aspectRatio = 16.0 / 9.0;
         const int imageWidth = 800;
         const int imageHeight = static_cast<int>(imageWidth / aspectRatio);
-        const int sampleCount = 100;
+        const int sampleCount = 1000;
         const int maxDepth = 50;
 
         // Camera
+        // Setup for test scene.
+//        Vector3d position = { 0.0, 0.0, 0.0 };
+//        Vector3d lookAt = { 0.0, 0.0, -1.0 };
+//        Vector3d up = { 0.0, 1.0, 0.0 };
+//        Camera camera(aspectRatio, 0.0, 1.0, 90.0, position, lookAt, up);
+        // Setup for random scene.
         Vector3d position = { 13.0, 2.0, 3.0 };
         Vector3d lookAt = { 0.0, 0.0, 0.0 };
         Vector3d up = { 0.0, 1.0, 0.0 };
         Camera camera(aspectRatio, 0.1, 10.0, 20.0, position, lookAt, up);
 
         // Scene
-
         auto shapeList = randomScene();
 
         // Render
-        PPMManager ppm = {};
-        ppm.startWrite(imageWidth, imageHeight);
+        ExporterManager em = {};
+        em.startWrite(imageWidth, imageHeight);
         for (int j = 0; j < imageHeight; ++j) {
             std::cout << "Scan line " << j+1 << " / " << imageHeight << '\n';
             for (int i = 0; i < imageWidth; ++i) {
@@ -117,14 +123,29 @@ int main(int argc, char* argv[]) {
                     color += rayColor(r, shapeList, maxDepth, true);
                 }
                 // Flip y-axis to make view-coord matches with NDC-coord.
-                ppm.writeColor(i, imageHeight - 1 - j, color / sampleCount, true);
+                em.writeColor(i, imageHeight - 1 - j, color / sampleCount, true);
             }
         }
-        ppm.endWrite("../Z Render Result/test.png");
+        em.endWrite("../Z Render Result/test.png", ExporterManager::PNG);
     }
     catch (const std::exception& e) {
         std::cout << e.what() << '\n';
     }
+}
+
+std::vector<std::shared_ptr<Shape>> testScene() {
+    std::vector<std::shared_ptr<Shape>> shapeList = {};
+
+    auto groundMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, -100.5, -1.0), 100.0, "scene", groundMaterial));
+
+//    auto ballMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
+//    auto ballMaterial = std::make_shared<Metal>(Vector3d(0.8, 0.8, 0.9), 0.0);
+    auto ballMaterial = std::make_shared<Dielectric>(Vector3d(0.8, 0.8, 0.9), 1.5);
+
+    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, 0.0, -1.0), 0.5, "ball", ballMaterial));
+
+    return shapeList;
 }
 
 std::vector<std::shared_ptr<Shape>> randomScene() {
@@ -156,14 +177,14 @@ std::vector<std::shared_ptr<Shape>> randomScene() {
                 }
                 else {
                     // Glass
-                    sphereMaterial = std::make_shared<Dielectric>(1.5);
+                    sphereMaterial = std::make_shared<Dielectric>(Vector3d(0.9, 0.9, 0.95), 1.5);
                     shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "glass_ball", sphereMaterial));
                 }
             }
         }
     }
 
-    auto material1 = std::make_shared<Dielectric>(1.5);
+    auto material1 = std::make_shared<Dielectric>(Vector3d(0.95, 0.95, 1.0), 1.5);
     shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, 1.0, 0.0), 1.0, "ball1", material1));
 
     auto material2 = std::make_shared<Lambertian>(Vector3d(0.4, 0.2, 0.1));

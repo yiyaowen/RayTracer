@@ -18,7 +18,7 @@ public:
     Metal(const Vector3d& albedo, double fuzz = 0.0) : m_albedo(albedo), m_fuzz(fuzz < 1.0 ? fuzz : 1.0) {}
 
     bool scatter(const Ray &rayIn, const HitResult &result, Vector3d &attenuation, Ray &rayScattered) const override {
-        Vector3d reflected = reflect(normalize(rayIn.direction()), result.normal);
+        Vector3d reflected = reflect(normalize(rayIn.direction()), normalize(result.normal));
         rayScattered = Ray(result.position, reflected + m_fuzz * randomUnitSphere());
         attenuation = m_albedo;
         return (dot(rayScattered.direction(), result.normal) > 0);

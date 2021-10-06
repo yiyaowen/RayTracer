@@ -15,26 +15,28 @@
 
 class Dielectric : public Material {
 public:
-    explicit Dielectric(double refractionIndex) : m_refractionIndex(refractionIndex) {}
+    explicit Dielectric(const Vector3d& albedo, double refractionIndex) : m_albedo(albedo), m_refractionIndex(refractionIndex) {}
 
     bool scatter(const Ray &rayIn, const HitResult &result, Vector3d &attenuation, Ray &rayScattered) const override {
-        attenuation = Vector3d(1.0, 1.0, 1.0);
-        double actualRefractionIndex = result.isOuter ? m_refractionIndex : (1.0 / m_refractionIndex);
+        attenuation = m_albedo;
+        double actualRefractionIndex = result.isOuter ? (1.0 / m_refractionIndex) : m_refractionIndex;
 
         Vector3d unitDirection = normalize(rayIn.direction());
-        double cosTheta = dot(result.normal, -unitDirection);
+        auto unitNormal = normalize(result.normal);
+
+        double cosTheta = dot(unitNormal, -unitDirection);
         double sinTheta = sqrt(1.0 - cosTheta * cosTheta);
 
-        bool isTotalReflected = actualRefractionIndex * sinTheta > 1.0;
+        bool isTotalReflected = sinTheta * actualRefractionIndex > 1.0;
 
         Vector3d rayRefracted = {};
-        // Total reflection & Fresnel effect
-//        if (isTotalReflected || schlickApproximation(cosTheta, actualRefractionIndex) > randomReal()) {
-//            rayRefracted = reflect(unitDirection, result.normal);
-//        }
-//        else {
-            rayRefracted = refract(unitDirection, result.normal, actualRefractionIndex);
-//        }
+        // Total internal reflection & Fresnel effect
+        if (isTotalReflected || schlickApproximation(cosTheta, actualRefractionIndex) > randomReal()) {
+            rayRefracted = reflect(unitDirection, unitNormal);
+        }
+        else {
+            rayRefracted = refract(unitDirection, unitNormal, actualRefractionIndex);
+        }
 
         rayScattered = Ray(result.position, rayRefracted);
         return true;
@@ -48,6 +50,8 @@ private:
     }
 
 private:
+    Vector3d m_albedo = {};
+
     double m_refractionIndex = 0.0;
 };
 

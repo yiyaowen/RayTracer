@@ -107,7 +107,7 @@ namespace gmath {
 
         inline friend Vector3<T> refract(const Vector3<T>& v, const Vector3<T>& n, T refractiveIndex) {
             T cosTheta = dot(n, -v);
-            Vector3<T> refractedPerpendicular = (v + cosTheta * n) / refractiveIndex;
+            Vector3<T> refractedPerpendicular = (v + cosTheta * n) * refractiveIndex;
             Vector3<T> refractedParallel = -sqrt(abs(1.0 - refractedPerpendicular.length2())) * n;
             return refractedPerpendicular + refractedParallel;
         }

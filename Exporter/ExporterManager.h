@@ -7,22 +7,27 @@
  * Web URL: https://raytracing.github.io/books/RayTracingInOneWeekend.html
 */
 
-#ifndef PPM_MANAGER_H
-#define PPM_MANAGER_H
+#ifndef EXPORTER_MANAGER_H
+#define EXPORTER_MANAGER_H
 
 #include "RayTracer/RayTracer.h"
 
-class PPMManager {
+class ExporterManager {
 public:
-    ~PPMManager();
+    using FileType = int;
+    constexpr static FileType PPM = 0;
+    constexpr static FileType PNG = 1;
+
+public:
+    ~ExporterManager();
 
     void startWrite(size_t width, size_t height);
 
-    bool endWrite(const std::string& filename);
+    bool endWrite(const std::string& filename, FileType type);
 
     void writeColor(size_t x, size_t y, Vector3i color);
 
-    void writeColor(size_t x, size_t y, Vector3d color, bool gammaCorrection);
+    void writeColor(size_t x, size_t y, Vector3d color, bool gammaCorrection = true);
 
 private:
     std::unique_ptr<std::ofstream> m_fout = nullptr;
@@ -31,4 +36,4 @@ private:
     std::vector<Vector3i> m_buffer = {};
 };
 
-#endif // PPM_MANAGER_H
+#endif // EXPORTER_MANAGER_H

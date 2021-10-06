@@ -11,7 +11,7 @@ add_executable(RayTracer
     # Headers
     ${GRAPH_MATH_INCLUDE}
     Camera/Camera.h
-    Exporter/PPMManager.h
+    Exporter/ExporterManager.h
     Exporter/stb_image_write.h
     Material/Dielectric.h
     Material/Lambertian.h
@@ -24,7 +24,7 @@ add_executable(RayTracer
 
     # Sources
     Camera/Camera.cpp
-    Exporter/PPMManager.cpp
+    Exporter/ExporterManager.cpp
     Ray/Ray.cpp
     RayTracer/RayTracer.cpp
     Shape/Sphere.cpp
