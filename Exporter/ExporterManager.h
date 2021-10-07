@@ -29,6 +29,8 @@ public:
 
     void writeColor(size_t x, size_t y, Vector3d color, bool gammaCorrection = true);
 
+    inline std::vector<Vector3i>& buffer() { return m_buffer; }
+
 private:
     std::unique_ptr<std::ofstream> m_fout = nullptr;
 

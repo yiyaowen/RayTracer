@@ -11,6 +11,7 @@ add_executable(RayTracer
     # Headers
     ${GRAPH_MATH_INCLUDE}
     Camera/Camera.h
+    Concurrency/PartialProcessor.h
     Exporter/ExporterManager.h
     Exporter/stb_image_write.h
     Material/Dielectric.h
@@ -18,14 +19,19 @@ add_executable(RayTracer
     Material/Material.h
     Material/Metal.h
     Ray/Ray.h
+    RayTracer/RayColor.h
     RayTracer/RayTracer.h
+    Scene/Scene.h
     Shape/Shape.h
     Shape/Sphere.h
 
     # Sources
+    Concurrency/PartialProcessor.cpp
     Camera/Camera.cpp
     Exporter/ExporterManager.cpp
     Ray/Ray.cpp
+    RayTracer/RayColor.cpp
     RayTracer/RayTracer.cpp
+    Scene/Scene.cpp
     Shape/Sphere.cpp
 )

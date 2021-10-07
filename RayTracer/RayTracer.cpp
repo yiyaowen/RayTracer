@@ -7,79 +7,17 @@
  * Web URL: https://raytracing.github.io/books/RayTracingInOneWeekend.html
 */
 
-#include "Camera/Camera.h"
+#include <functional>
+#include <future>
+#include <thread>
+
 #include "Exporter/ExporterManager.h"
-#include "Material/Dielectric.h"
-#include "Material/Lambertian.h"
-#include "Material/Metal.h"
-#include "Ray/Ray.h"
-#include "Shape/Sphere.h"
+#include "Concurrency/PartialProcessor.h"
+#include "Scene/Scene.h"
 
 #include "RayTracer.h"
 
 std::default_random_engine defaultRandomEngine;
-
-Vector3d rayColor(const Ray& r, const std::vector<std::shared_ptr<Shape>>& shapeList, int depth, bool autoPriority) {
-    HitResult hit = {};
-
-    // In case of stack overflow.
-    if (depth <= 0) return Vector3d::zero();
-
-    /*
-     * Compare depth priority automatically.
-     */
-    if (autoPriority) {
-        HitResult nearHit = {};
-        nearHit.t = infinity;
-        for (const auto& shape : shapeList) {
-            if (shape->hit(r, 0.001, infinity, hit)) { // Do not hit children.
-                if (hit.t > 0.0 && hit.t < nearHit.t) {
-                    nearHit = hit;
-                }
-            }
-        }
-        if (nearHit.t < infinity) {
-            Ray rayScattered = {};
-            Vector3d attenuation = {};
-            if (nearHit.material->scatter(r, nearHit, attenuation, rayScattered)) {
-                return attenuation * rayColor(rayScattered, shapeList, depth - 1, autoPriority);
-            }
-            else {
-                return Vector3d::zero();
-            }
-        }
-        else {
-            // Default sky background.
-            Vector3d unitDirection = normalize(r.direction());
-            auto t = 0.5 * (unitDirection.y() + 1.0);
-            return (1.0 - t) * Vector3d(1.0, 1.0, 1.0) + t * Vector3d(0.5, 0.7, 1.0);
-        }
-    }
-    /*
-     * Use designated priority.
-     */
-    else {
-        for (const auto& shape : shapeList) {
-            if (shape->hit(r, 0.001, infinity, hit)) { // Do not hit children.
-                Ray rayScattered = {};
-                Vector3d attenuation = {};
-                if (hit.material->scatter(r, hit, attenuation, rayScattered)) {
-                    return attenuation * rayColor(rayScattered, shapeList, depth - 1, autoPriority);
-                }
-                else {
-                    return Vector3d::zero();
-                }
-            }
-        }
-        // Default sky background.
-        Vector3d unitDirection = normalize(r.direction());
-        auto t = 0.5 * (unitDirection.y() + 1.0);
-        return (1.0 - t) * Vector3d(1.0, 1.0, 1.0) + t * Vector3d(0.5, 0.7, 1.0);
-    }
-}
-
-std::vector<std::shared_ptr<Shape>> testScene();
-std::vector<std::shared_ptr<Shape>> randomScene();
 
 int main(int argc, char* argv[]) {
     try {
@@ -90,108 +28,100 @@ int main(int argc, char* argv[]) {
         const double aspectRatio = 16.0 / 9.0;
         const int imageWidth = 800;
         const int imageHeight = static_cast<int>(imageWidth / aspectRatio);
-        const int sampleCount = 1000;
         const int maxDepth = 50;
+        const int sampleCount = 100;
 
+        /* Build scene start */
+        auto buildSceneStart = std::chrono::high_resolution_clock::now();
         // Camera
-        // Setup for test scene.
-//        Vector3d position = { 0.0, 0.0, 0.0 };
-//        Vector3d lookAt = { 0.0, 0.0, -1.0 };
-//        Vector3d up = { 0.0, 1.0, 0.0 };
-//        Camera camera(aspectRatio, 0.0, 1.0, 90.0, position, lookAt, up);
-        // Setup for random scene.
-        Vector3d position = { 13.0, 2.0, 3.0 };
-        Vector3d lookAt = { 0.0, 0.0, 0.0 };
-        Vector3d up = { 0.0, 1.0, 0.0 };
-        Camera camera(aspectRatio, 0.1, 10.0, 20.0, position, lookAt, up);
+        auto camera = randomBallsCamera(aspectRatio);
 
         // Scene
-        auto shapeList = randomScene();
+        auto shapeList = randomBallsScene();
+        /* Build scene end */
+        auto buildSceneEnd = std::chrono::high_resolution_clock::now();
+        auto buildSceneCost = buildSceneEnd - buildSceneStart;
+        auto buildSceneCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(buildSceneCost).count();
+        auto buildSceneCostUs = std::chrono::duration_cast<std::chrono::microseconds>(buildSceneCost).count();
 
+        /* Render scene start */
+        auto renderSceneStart = std::chrono::high_resolution_clock::now();
         // Render
         ExporterManager em = {};
         em.startWrite(imageWidth, imageHeight);
-        for (int j = 0; j < imageHeight; ++j) {
-            std::cout << "Scan line " << j+1 << " / " << imageHeight << '\n';
-            for (int i = 0; i < imageWidth; ++i) {
-                Vector3d color = Vector3d::zero();
-                // Sample near points randomly.
-                for (int s = 0; s < sampleCount; ++s) {
-                    auto u = (double(i) + randomReal()) / static_cast<double>(imageWidth - 1);
-                    auto v = (double(j) + randomReal()) / static_cast<double>(imageHeight - 1);
-                    auto r = camera.getRay(u, v);
-                    color += rayColor(r, shapeList, maxDepth, true);
+
+        // Split the image to take advantage of multithreading to accelerate rendering.
+        PartialSceneInfo sceneInfo(shapeList);
+        sceneInfo.fullSize = { imageWidth, imageHeight };
+        sceneInfo.camera = camera;
+        sceneInfo.maxDepth = maxDepth;
+        sceneInfo.sampleCount = sampleCount;
+
+        int dispatchCountX = 16;
+        int dispatchCountY = 16;
+
+        int partialWidth = imageWidth / dispatchCountX;
+        int partialHeight = imageHeight / dispatchCountY;
+
+        std::vector<PartialProcessor> partials;
+        partials.reserve((dispatchCountX + 1) * (dispatchCountY + 1));
+
+        std::vector<std::future<void>> tasks;
+        tasks.reserve((dispatchCountX + 1) * (dispatchCountY + 1));
+
+        std::cout << "Building partial processors..." << std::endl;
+        int partialID = 0;
+        for (int i = 0; i <= dispatchCountX; ++i) {
+            for (int j = 0; j <= dispatchCountY; ++j) {
+                sceneInfo.widthRange = {partialWidth * i, partialWidth * (i + 1) - 1 };
+                if (sceneInfo.widthRange.second >= imageWidth) {
+                    if (sceneInfo.widthRange.first >= imageWidth) continue;
+                    sceneInfo.widthRange.second = imageWidth - 1;
                 }
-                // Flip y-axis to make view-coord matches with NDC-coord.
-                em.writeColor(i, imageHeight - 1 - j, color / sampleCount, true);
+                sceneInfo.heightRange = {partialHeight * j, partialHeight * (j + 1) - 1 };
+                if (sceneInfo.heightRange.second >= imageHeight) {
+                    if (sceneInfo.heightRange.first >= imageHeight) continue;
+                    sceneInfo.heightRange.second = imageHeight - 1;
+                }
+                partials.emplace_back(sceneInfo, partialID);
+                tasks.emplace_back(std::async([&,partialID] { partials[partialID].process(); }));
+                ++partialID;
             }
         }
+
+        size_t totalCount = tasks.size();
+        size_t lastFinished = 0, currFinished = 0;
+        std::function<size_t()> finishedCount = [&]() -> size_t {
+            return std::count_if(tasks.begin(), tasks.end(), [&](const std::future<void>& task) {
+                return task.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+            });
+        };
+        while ((currFinished = finishedCount()) != totalCount) {
+            if (currFinished > lastFinished) {
+                std::cout << "Finished partial count " << currFinished << " / " << totalCount << std::endl;
+                lastFinished = currFinished;
+            }
+            std::this_thread::yield();
+        }
+
+
+        std::cout << "Writing partial images to final full image...\n";
+        for (const auto& partial : partials) {
+            partial.writeToFullImage(em.buffer());
+        }
+
+        std::cout << "Generating render result...\n";
         em.endWrite("../Z Render Result/test.png", ExporterManager::PNG);
+        /* Render scene end */
+        auto renderSceneEnd = std::chrono::high_resolution_clock::now();
+        auto renderSceneCost = renderSceneEnd - renderSceneStart;
+        auto renderSceneCostMin = std::chrono::duration_cast<std::chrono::minutes>(renderSceneCost).count();
+        auto renderSceneCostSec = std::chrono::duration_cast<std::chrono::seconds>(renderSceneCost).count();
+
+        std::cout << "Build finished in " << buildSceneCostMs << " ms, " << buildSceneCostUs << " us. " <<
+            "Render finished in " << renderSceneCostMin << " min, " << renderSceneCostSec << " sec.\n";
     }
     catch (const std::exception& e) {
         std::cout << e.what() << '\n';
     }
-}
-
-std::vector<std::shared_ptr<Shape>> testScene() {
-    std::vector<std::shared_ptr<Shape>> shapeList = {};
-
-    auto groundMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, -100.5, -1.0), 100.0, "scene", groundMaterial));
-
-//    auto ballMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
-//    auto ballMaterial = std::make_shared<Metal>(Vector3d(0.8, 0.8, 0.9), 0.0);
-    auto ballMaterial = std::make_shared<Dielectric>(Vector3d(0.8, 0.8, 0.9), 1.5);
-
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, 0.0, -1.0), 0.5, "ball", ballMaterial));
-
-    return shapeList;
-}
-
-std::vector<std::shared_ptr<Shape>> randomScene() {
-    std::vector<std::shared_ptr<Shape>> shapeList = {};
-
-    auto groundMaterial = std::make_shared<Lambertian>(Vector3d(0.5, 0.5, 0.5));
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, -1000.0, 0.0), 1000.0, "scene", groundMaterial));
-
-    for (int a = -11; a < 11; ++a) {
-        for (int b = -11;  b < 11; ++b) {
-            auto choose = randomReal();
-            Vector3d center(a + 0.9 * randomReal(), 0.2, b + 0.9 * randomReal());
-
-            if ((center - Vector3d(4.0, 0.2, 0.0)).length() > 0.9) {
-                std::shared_ptr<Material> sphereMaterial;
-
-                if (choose < 0.8) {
-                    // Diffuse
-                    auto albedo = randomVec3d() * randomVec3d();
-                    sphereMaterial = std::make_shared<Lambertian>(albedo);
-                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "diffuse_ball", sphereMaterial));
-                }
-                else if (choose < 0.95) {
-                    // Metal
-                    auto albedo = randomVec3d(0.5, 1.0);
-                    auto fuzz = randomReal(0.0, 0.5);
-                    sphereMaterial = std::make_shared<Metal>(albedo, fuzz);
-                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "metal_ball", sphereMaterial));
-                }
-                else {
-                    // Glass
-                    sphereMaterial = std::make_shared<Dielectric>(Vector3d(0.9, 0.9, 0.95), 1.5);
-                    shapeList.push_back(std::make_shared<Sphere>(center, 0.2, "glass_ball", sphereMaterial));
-                }
-            }
-        }
-    }
-
-    auto material1 = std::make_shared<Dielectric>(Vector3d(0.95, 0.95, 1.0), 1.5);
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(0.0, 1.0, 0.0), 1.0, "ball1", material1));
-
-    auto material2 = std::make_shared<Lambertian>(Vector3d(0.4, 0.2, 0.1));
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(-4.0, 1.0, 0.0), 1.0, "ball2", material2));
-
-    auto material3 = std::make_shared<Metal>(Vector3d(0.7, 0.6, 0.5), 0.0);
-    shapeList.push_back(std::make_shared<Sphere>(Vector3d(4.0, 1.0, 0.0), 1.0, "ball3", material3));
-
-    return shapeList;
 }
