@@ -12,10 +12,8 @@
 #include "RayTracer/RayColor.h"
 
 void PartialProcessor::process() {
-//    std::cout << "Partial ID " << m_ID << " starts processing..." << std::endl;
     auto& info = m_sceneInfo;
     for (int j = info.heightRange.first; j <= info.heightRange.second; ++j) {
-//        std::cout << "Partial ID " << m_ID << ", scan line " << j - info.heightRange.first + 1 << " / " << m_partialHeight << std::endl;
         for (int i = info.widthRange.first; i <= info.widthRange.second; ++i) {
             Vector3d color = Vector3d::zero();
             // Sample near points randomly.
@@ -30,7 +28,6 @@ void PartialProcessor::process() {
             writeColor(i - info.widthRange.first, j - info.heightRange.first, color / info.sampleCount, true);
         }
     }
-//    std::cout << "Partial ID " << m_ID << " finishes processing!" << std::endl;
 }
 
 void PartialProcessor::writeToFullImage(std::vector<Vector3i>& fullImage) const {

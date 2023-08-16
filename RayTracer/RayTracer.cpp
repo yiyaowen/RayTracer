@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "Generating render result...\n";
-        em.endWrite("../Z Render Result/test.png", ExporterManager::PNG);
+        em.endWrite("render_result.png", ExporterManager::PNG);
         /* Render scene end */
         auto renderSceneEnd = std::chrono::high_resolution_clock::now();
         auto renderSceneCost = renderSceneEnd - renderSceneStart;

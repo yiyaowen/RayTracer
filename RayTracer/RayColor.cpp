@@ -47,9 +47,9 @@ Vector3d rayColor(const Ray& r, const std::vector<std::shared_ptr<Shape>>& shape
             return (1.0 - t) * Vector3d(1.0, 1.0, 1.0) + t * Vector3d(0.5, 0.7, 1.0);
         }
     }
-        /*
-         * Use designated priority.
-         */
+    /*
+    * Use designated priority.
+    */
     else {
         for (const auto& shape : shapeList) {
             if (shape->hit(r, 0.001, infinity, hit)) { // Do not hit children.
