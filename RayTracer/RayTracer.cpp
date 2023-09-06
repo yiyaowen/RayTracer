@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         const int imageWidth = 800;
         const int imageHeight = static_cast<int>(imageWidth / aspectRatio);
         const int maxDepth = 50;
-        const int sampleCount = 100;
+        const int sampleCount = 50;
 
         /* Build scene start */
         auto buildSceneStart = std::chrono::high_resolution_clock::now();
@@ -41,8 +41,9 @@ int main(int argc, char* argv[]) {
         /* Build scene end */
         auto buildSceneEnd = std::chrono::high_resolution_clock::now();
         auto buildSceneCost = buildSceneEnd - buildSceneStart;
-        auto buildSceneCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(buildSceneCost).count();
-        auto buildSceneCostUs = std::chrono::duration_cast<std::chrono::microseconds>(buildSceneCost).count();
+        auto buildSceneUs = std::chrono::duration_cast<std::chrono::microseconds>(buildSceneCost).count();
+        auto buildSceneCostMs = buildSceneUs / 1000;
+        auto buildSceneCostUs = buildSceneUs % 1000;
 
         /* Render scene start */
         auto renderSceneStart = std::chrono::high_resolution_clock::now();
@@ -115,8 +116,9 @@ int main(int argc, char* argv[]) {
         /* Render scene end */
         auto renderSceneEnd = std::chrono::high_resolution_clock::now();
         auto renderSceneCost = renderSceneEnd - renderSceneStart;
-        auto renderSceneCostMin = std::chrono::duration_cast<std::chrono::minutes>(renderSceneCost).count();
-        auto renderSceneCostSec = std::chrono::duration_cast<std::chrono::seconds>(renderSceneCost).count();
+        auto renderSceneSecs = std::chrono::duration_cast<std::chrono::seconds>(renderSceneCost).count();
+        auto renderSceneCostMin = renderSceneSecs / 60;
+        auto renderSceneCostSec = renderSceneSecs % 60;
 
         std::cout << "Build finished in " << buildSceneCostMs << " ms, " << buildSceneCostUs << " us. " <<
             "Render finished in " << renderSceneCostMin << " min, " << renderSceneCostSec << " sec.\n";
