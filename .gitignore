@@ -1,15 +1,3 @@
-CMakeLists.txt.user
-CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-_deps
-
 # macOS directory property file
 .DS_Store
 
@@ -17,4 +5,5 @@ _deps
 .vs
 
 # intermediate binary directory
+build
 out
